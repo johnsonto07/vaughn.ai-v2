@@ -104,13 +104,6 @@ h1 {
   line-height: 1.5;
 }
 
-.intro-copy .location-text {
-  color: #8e8e93;
-  font-size: clamp(0.98rem, 1.1vw, 1.1rem);
-  font-weight: 600;
-  line-height: 1.2;
-}
-
 .intro-copy button {
   position: absolute;
   right: 0;
@@ -168,9 +161,16 @@ h1 {
 .contact {
   display: grid;
   justify-items: center;
-  gap: 5px;
+  gap: 3px;
   color: #fff;
   font-size: 0.86rem;
+}
+
+.contact span {
+  color: #8e8e93;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1;
 }
 
 .contact-avatar {
@@ -249,9 +249,11 @@ h1 {
   line-height: 1;
   opacity: var(--time-opacity);
   text-align: right;
-  transform: translateY(-50%);
+  transform: translate(calc(54px - var(--time-reveal)), -50%);
   pointer-events: none;
-  transition: opacity 180ms ease;
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
 }
 
 .messages.is-revealing-times .message.user > p,
