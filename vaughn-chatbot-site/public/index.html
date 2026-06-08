@@ -13,6 +13,7 @@
           <img class="profile-photo" src="/assets/vaughai.jpg" alt="Vaughn holding a basketball on game day" />
           <div class="intro-copy">
             <h1>vaughn.ai</h1>
+            <p class="location-text">Guatemala, Central America</p>
             <p>
               A friendly AI inspired by Vaughn. Get help with homework, chat about dinosaurs,
               Lord of the Rings, basketball history, or Mormonism, and learn through clear,
@@ -35,14 +36,19 @@
         </header>
 
         <div id="messages" class="messages" aria-live="polite">
+          <div id="chat-date-stamp" class="chat-date-stamp">Today</div>
           <article class="message bot">
             <p>Good morning gang</p>
+            <time class="message-time"></time>
           </article>
         </div>
 
         <form id="chat-form" class="composer">
           <label class="sr-only" for="message-input">Message vaughn.ai</label>
-          <textarea id="message-input" name="message" rows="1" placeholder="iMessage" required></textarea>
+          <div id="attachment-preview" class="attachment-preview" hidden></div>
+          <input id="file-input" class="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/gif,text/plain,text/markdown,text/csv,application/pdf,.txt,.md,.csv,.pdf" />
+          <button id="attach-button" class="attach-button" type="button" aria-label="Add photo or file">+</button>
+          <textarea id="message-input" name="message" rows="1" placeholder="iMessage"></textarea>
           <button type="submit">Send</button>
         </form>
       </section>
