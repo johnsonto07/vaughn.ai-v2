@@ -8,6 +8,7 @@ const root = fileURLToPath(new URL(".", import.meta.url));
 const publicDir = join(root, "public");
 const port = Number(process.env.PORT || 3000);
 const model = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+const maxBodyBytes = 9 * 1024 * 1024;
 
 const VAUGHN_PERSONA = `
 You are vaughn.ai, an AI chatbot inspired by Vaughn. You are not the real Vaughn and must not claim to be the actual person, but you should answer naturally in Vaughn's style without repeatedly saying "I am guessing" or "based on the profile."
@@ -42,6 +43,8 @@ Behavior rules:
 - Use slang naturally, like "lowkey," "valid," "bro," "cooked," "that's actually fire," or "not gonna lie," but do not overdo it.
 - For homework, explain the concept directly first. If an analogy would help, use one aligned with Vaughn's interests: basketball, dinosaurs, Lord of the Rings, engineering, history, or golf. Guide the user instead of just dumping final answers.
 - If the user types something chaotic, confusing, bizarre, or not normal, start with "what the frick jigsaw" and then ask what they mean or respond playfully if the meaning is clear.
+- If the user uploads a photo or file, react to it naturally. For homework photos, read what you can and help step by step.
+- If an uploaded photo or file is sexual, graphic, hateful, threatening, or clearly inappropriate, reply exactly with: oh heck nah jigsaw
 `.trim();
 
 const mimeTypes = {
@@ -59,8 +62,52 @@ function sendJson(res, status, data) {
 
 async function readBody(req) {
   const chunks = [];
-  for await (const chunk of req) chunks.push(chunk);
+  let total = 0;
+  for await (const chunk of req) {
+    total += chunk.length;
+    if (total > maxBodyBytes) throw new Error("body_too_large");
+    chunks.push(chunk);
+  }
   return Buffer.concat(chunks).toString("utf8");
+}
+
+function normalizeDataUrl(value) {
+  return typeof value === "string" && /^data:[^;]+;base64,/.test(value) ? value : "";
+}
+
+function base64FromDataUrl(value) {
+  const dataUrl = normalizeDataUrl(value);
+  return dataUrl ? dataUrl.split(",")[1] || "" : "";
+}
+
+function cleanAttachments(attachments) {
+  if (!Array.isArray(attachments)) return [];
+
+  return attachments
+    .filter((attachment) => attachment && typeof attachment === "object")
+    .slice(0, 1)
+    .map((attachment) => {
+      const kind = attachment.kind === "image" ? "image" : attachment.kind === "file" ? "file" : "";
+      const mimeType = String(attachment.mimeType || "").slice(0, 80);
+      const name = String(attachment.name || "attachment").slice(0, 120);
+      const dataUrl = normalizeDataUrl(attachment.dataUrl);
+      const text = String(attachment.text || "").slice(0, 12000);
+
+      if (kind === "image" && /^image\/(png|jpe?g|webp|gif)$/i.test(mimeType) && dataUrl) {
+        return { kind, mimeType, name, dataUrl };
+      }
+
+      if (kind === "file" && text) {
+        return { kind, mimeType, name, text };
+      }
+
+      if (kind === "file" && dataUrl && /^application\/pdf$/i.test(mimeType)) {
+        return { kind, mimeType, name, dataUrl };
+      }
+
+      return null;
+    })
+    .filter(Boolean);
 }
 
 function cleanMessages(messages) {
@@ -69,9 +116,50 @@ function cleanMessages(messages) {
     .filter((message) => message && ["user", "assistant"].includes(message.role))
     .map((message) => ({
       role: message.role,
-      content: String(message.content || "").slice(0, 2000)
+      content: String(message.content || "").slice(0, 2000),
+      attachments: message.role === "user" ? cleanAttachments(message.attachments) : []
     }))
     .slice(-16);
+}
+
+function buildModelInput(messages) {
+  return messages.map((message) => {
+    if (message.role === "assistant") {
+      return { role: "assistant", content: message.content };
+    }
+
+    const content = [];
+    if (message.content) {
+      content.push({ type: "input_text", text: message.content });
+    }
+
+    for (const attachment of message.attachments) {
+      if (attachment.kind === "image") {
+        content.push({
+          type: "input_image",
+          image_url: attachment.dataUrl,
+          detail: "auto"
+        });
+      } else if (attachment.text) {
+        content.push({
+          type: "input_text",
+          text: `Attached file (${attachment.name}):\n${attachment.text}`
+        });
+      } else if (attachment.dataUrl) {
+        content.push({
+          type: "input_file",
+          filename: attachment.name,
+          file_data: base64FromDataUrl(attachment.dataUrl)
+        });
+      }
+    }
+
+    if (!content.length) {
+      content.push({ type: "input_text", text: "Sent an empty message." });
+    }
+
+    return { role: "user", content };
+  });
 }
 
 function getResponseText(data) {
@@ -110,7 +198,7 @@ function getResponseText(data) {
 async function chat(req, res) {
   if (!process.env.OPENAI_API_KEY) {
     sendJson(res, 500, {
-      error: "The site needs an OpenAI API key before Vaughn Bot can answer."
+      error: "The site needs an OpenAI API key before vaughn.ai can answer."
     });
     return;
   }
@@ -118,7 +206,11 @@ async function chat(req, res) {
   let payload;
   try {
     payload = JSON.parse(await readBody(req));
-  } catch {
+  } catch (error) {
+    if (error.message === "body_too_large") {
+      sendJson(res, 413, { error: "That upload is too big. Try a smaller photo or file." });
+      return;
+    }
     sendJson(res, 400, { error: "That message could not be read." });
     return;
   }
@@ -139,20 +231,22 @@ async function chat(req, res) {
       body: JSON.stringify({
         model,
         instructions: VAUGHN_PERSONA,
-        input: messages
+        input: buildModelInput(messages)
       })
     });
 
     const data = await apiRes.json();
     if (!apiRes.ok) {
       sendJson(res, apiRes.status, {
-        error: data.error?.message || "Vaughn Bot had trouble answering."
+        error: data.error?.message || "vaughn.ai had trouble answering."
       });
       return;
     }
 
+    const reply = getResponseText(data) || "The model responded, but this server could not find any text in the response. Restart the server, then try again.";
     sendJson(res, 200, {
-      reply: getResponseText(data) || "The model responded, but this server could not find any text in the response. Restart the server, then try again."
+      reply,
+      leftChat: reply.trim().toLowerCase().startsWith("oh heck nah jigsaw")
     });
   } catch {
     sendJson(res, 500, {
