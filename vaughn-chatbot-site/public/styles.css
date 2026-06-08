@@ -27,6 +27,29 @@ textarea {
   font: inherit;
 }
 
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button > span {
+  display: inline-block;
+  transition:
+    filter 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+button:hover > span,
+button:focus-visible > span {
+  filter: brightness(1.18);
+  transform: scale(1.14);
+}
+
+button:active > span {
+  filter: brightness(1.28);
+  transform: scale(0.96);
+}
+
 .app-shell {
   position: relative;
   height: var(--app-height);
@@ -356,7 +379,7 @@ h1 {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 8px;
-  align-items: end;
+  align-items: center;
   width: min(760px, 100%);
   justify-self: center;
   padding: 10px 10px 16px;
