@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>vaughn.ai</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section id="intro-view" class="scene intro-view is-active" aria-label="vaughn.ai intro">
+        <div class="intro-card">
+          <img class="profile-photo" src="/assets/vaughai.jpg" alt="Vaughn holding a basketball on game day" />
+          <div class="intro-copy">
+            <h1>vaughn.ai</h1>
+            <p>
+              A friendly AI inspired by Vaughn. Get help with homework, chat about dinosaurs,
+              Lord of the Rings, basketball history, or Mormonism, and learn through clear,
+              patient explanations. Smart, kind, a little funny, and always down to help,
+              without pretending to be the real Vaughn.
+            </p>
+            <button id="start-chat" type="button">Next</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="chat-view" class="scene chat-view" aria-label="vaughn.ai chat" aria-hidden="true">
+        <header class="phone-header">
+          <button id="back-button" class="back-button" type="button" aria-label="Back to profile">&lsaquo;</button>
+          <div class="contact">
+            <div class="contact-avatar">V</div>
+            <strong>vaughn.ai</strong>
+          </div>
+          <div class="header-spacer"></div>
+        </header>
+
+        <div id="messages" class="messages" aria-live="polite">
+          <article class="message bot">
+            <p>Good morning gang</p>
+          </article>
+        </div>
+
+        <form id="chat-form" class="composer">
+          <label class="sr-only" for="message-input">Message vaughn.ai</label>
+          <textarea id="message-input" name="message" rows="1" placeholder="iMessage" required></textarea>
+          <button type="submit">Send</button>
+        </form>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
