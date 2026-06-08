@@ -8,6 +8,11 @@ const backButton = document.querySelector("#back-button");
 
 const history = [];
 
+function setAppHeight() {
+  const height = window.visualViewport?.height || window.innerHeight;
+  document.documentElement.style.setProperty("--app-height", `${height}px`);
+}
+
 function addMessage(role, content) {
   const article = document.createElement("article");
   article.className = `message ${role === "user" ? "user" : "bot"}`;
@@ -43,6 +48,9 @@ function showIntro() {
 
 startChatButton.addEventListener("click", showChat);
 backButton.addEventListener("click", showIntro);
+setAppHeight();
+window.visualViewport?.addEventListener("resize", setAppHeight);
+window.addEventListener("resize", setAppHeight);
 
 input.addEventListener("input", () => {
   input.style.height = "auto";
