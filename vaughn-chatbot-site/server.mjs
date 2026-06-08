@@ -98,3 +98,104 @@ function getResponseText(data) {
     if (typeof value.delta?.content === "string") parts.push(value.delta.content);
 
     visit(value.content);
+    visit(value.output);
+    visit(value.choices);
+  };
+
+  visit(data);
+
+  return parts.join("").trim();
+}
+
+async function chat(req, res) {
+  if (!process.env.OPENAI_API_KEY) {
+    sendJson(res, 500, {
+      error: "The site needs an OpenAI API key before Vaughn Bot can answer."
+    });
+    return;
+  }
+
+  let payload;
+  try {
+    payload = JSON.parse(await readBody(req));
+  } catch {
+    sendJson(res, 400, { error: "That message could not be read." });
+    return;
+  }
+
+  const messages = cleanMessages(payload.messages);
+  if (!messages.length) {
+    sendJson(res, 400, { error: "Send at least one message." });
+    return;
+  }
+
+  try {
+    const apiRes = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model,
+        instructions: VAUGHN_PERSONA,
+        input: messages
+      })
+    });
+
+    const data = await apiRes.json();
+    if (!apiRes.ok) {
+      sendJson(res, apiRes.status, {
+        error: data.error?.message || "Vaughn Bot had trouble answering."
+      });
+      return;
+    }
+
+    sendJson(res, 200, {
+      reply: getResponseText(data) || "The model responded, but this server could not find any text in the response. Restart the server, then try again."
+    });
+  } catch {
+    sendJson(res, 500, {
+      error: "The server could not reach OpenAI right now."
+    });
+  }
+}
+
+async function serveStatic(req, res) {
+  const url = new URL(req.url, `http://${req.headers.host}`);
+  const requested = url.pathname === "/" ? "/index.html" : decodeURIComponent(url.pathname);
+  const filePath = normalize(join(publicDir, requested));
+
+  if (!filePath.startsWith(publicDir) || !existsSync(filePath)) {
+    res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("Not found");
+    return;
+  }
+
+  const ext = extname(filePath);
+  const content = await readFile(filePath);
+  res.writeHead(200, {
+    "Content-Type": mimeTypes[ext] || "application/octet-stream",
+    "Cache-Control": "no-store"
+  });
+  res.end(content);
+}
+
+const server = createServer(async (req, res) => {
+  if (req.method === "POST" && req.url === "/api/chat") {
+    await chat(req, res);
+    return;
+  }
+
+  if (req.method === "GET" || req.method === "HEAD") {
+    await serveStatic(req, res);
+    return;
+  }
+
+  res.writeHead(405, { "Content-Type": "text/plain; charset=utf-8" });
+  res.end("Method not allowed");
+});
+
+server.listen(port, () => {
+  console.log(`Vaughn Bot is running at http://localhost:${port}`);
+});
